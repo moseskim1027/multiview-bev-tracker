@@ -161,14 +161,56 @@ docker compose run tracker python scripts/run_tracker.py \
 
 ## Local Development
 
-```bash
-pip install -e ".[dev]"
+### Conda environment (recommended)
 
+Two paths depending on hardware:
+
+#### Option A — Apple Silicon (M1/M2/M3) with MPS acceleration
+
+```bash
+# Create env using native arm64 (MPS-capable PyTorch)
+conda create -n bev-tracker python=3.11 -y
+conda activate bev-tracker
+pip install -r requirements.txt
+# torchreid from source (no PyPI package)
+pip install --no-build-isolation \
+    git+https://github.com/KaiyangZhou/deep-person-reid.git
+pip install -e ".[dev]"
+```
+
+#### Option B — Intel Mac / Rosetta 2 (osx-64, CPU-only)
+
+```bash
+# Force x86_64 environment for Rosetta compatibility
+CONDA_SUBDIR=osx-64 conda create -n bev-tracker python=3.11 -y
+conda activate bev-tracker
+conda config --env --set subdir osx-64
+pip install -r requirements.txt
+pip install --no-build-isolation \
+    git+https://github.com/KaiyangZhou/deep-person-reid.git
+pip install -e ".[dev]"
+```
+
+#### Option C — Linux / Docker (CPU or CUDA)
+
+```bash
+pip install -r requirements.txt
+pip install --no-build-isolation \
+    git+https://github.com/KaiyangZhou/deep-person-reid.git
+pip install -e ".[dev]"
+```
+
+### Lint and tests
+
+```bash
 # Lint
 ruff check .
 ruff format --check .
 
-# Tests
+# Unit tests (no models or data required)
+pytest -m "not integration"
+
+# All tests including integration (requires data/wildtrack/ and models/)
 pytest
 ```
 
