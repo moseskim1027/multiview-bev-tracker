@@ -66,6 +66,9 @@ class ReIDExtractor:
             state = torch.load(self.weights_path, map_location="cpu")
             # torchreid checkpoints may be nested under 'state_dict'
             state_dict = state.get("state_dict", state)
+            # Strip the classifier head — its shape depends on the training dataset
+            # (e.g. 1041 for Market-1501) and is unused during feature extraction.
+            state_dict = {k: v for k, v in state_dict.items() if not k.startswith("classifier")}
             model.load_state_dict(state_dict, strict=False)
 
         model = model.to(self.device)
