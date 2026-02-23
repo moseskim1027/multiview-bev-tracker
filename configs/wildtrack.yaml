@@ -1,0 +1,56 @@
+# multiview-bev-tracker — WILDTRACK dataset configuration
+# Homographies are computed automatically from calibration files;
+# no manual homography entry needed here.
+
+# ── Detection ─────────────────────────────────────────────────────────────────
+detection:
+  model: models/yolov8n.pt   # downloaded by scripts/setup_models.py
+  confidence_threshold: 0.4  # lower than default to catch crowded scenes
+  device: auto               # "auto" → get_device() (mps | cuda | cpu)
+
+# ── ReID ──────────────────────────────────────────────────────────────────────
+reid:
+  model: osnet_x0_25
+  weights: models/osnet_x0_25_market.pth
+  device: auto
+
+# ── Tracking ──────────────────────────────────────────────────────────────────
+tracking:
+  max_age: 30
+  embedding_threshold: 0.4
+  dist_threshold: 2.0        # metres — Wildtrack scene is ~12 m × 36 m
+  cost_threshold: 5.0
+  alpha: 0.6
+  beta: 0.4
+  embedding_momentum: 0.9
+
+# ── Cameras ───────────────────────────────────────────────────────────────────
+# Homographies are loaded from calibration files at runtime.
+# The "homography" field is left as identity here and overridden by the
+# WildtrackDataset loader when building Camera objects.
+cameras:
+  - id: C1
+    source: data/wildtrack/Image_subsets/C1
+  - id: C2
+    source: data/wildtrack/Image_subsets/C2
+  - id: C3
+    source: data/wildtrack/Image_subsets/C3
+  - id: C4
+    source: data/wildtrack/Image_subsets/C4
+  - id: C5
+    source: data/wildtrack/Image_subsets/C5
+  - id: C6
+    source: data/wildtrack/Image_subsets/C6
+  - id: C7
+    source: data/wildtrack/Image_subsets/C7
+
+# ── Visualization ─────────────────────────────────────────────────────────────
+visualization:
+  enabled: true
+  bev_width: 480              # pixels — matches x-grid width
+  bev_height: 1440            # pixels — matches y-grid height (scaled for display)
+  world_x_range: [-3.0, 9.0]  # metres (480 cells × 0.025 m)
+  world_y_range: [-9.0, 27.0] # metres (1440 cells × 0.025 m)
+  show_ids: true
+  show_trails: true
+  trail_length: 30
