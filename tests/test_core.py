@@ -7,8 +7,8 @@ from bev_tracker.core.camera import Camera
 from bev_tracker.core.detection import Detection
 from bev_tracker.core.track import Track
 
-
 # ── Camera ────────────────────────────────────────────────────────────────────
+
 
 class TestCamera:
     def _identity_cam(self, cam_id: str = "cam0") -> Camera:
@@ -40,6 +40,7 @@ class TestCamera:
 
 
 # ── Detection ─────────────────────────────────────────────────────────────────
+
 
 class TestDetection:
     def _det(self, **kwargs) -> Detection:
@@ -85,6 +86,7 @@ class TestDetection:
 
 
 # ── Track ─────────────────────────────────────────────────────────────────────
+
 
 class TestTrack:
     def _track(self, **kwargs) -> Track:

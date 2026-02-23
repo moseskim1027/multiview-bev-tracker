@@ -28,9 +28,7 @@ class Camera:
     def __post_init__(self) -> None:
         self.homography = np.asarray(self.homography, dtype=np.float64)
         if self.homography.shape != (3, 3):
-            raise ValueError(
-                f"homography must be shape (3, 3), got {self.homography.shape}"
-            )
+            raise ValueError(f"homography must be shape (3, 3), got {self.homography.shape}")
 
     @property
     def homography_inv(self) -> np.ndarray:
