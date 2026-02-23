@@ -257,6 +257,16 @@ body {
   color: #4ade80;
 }
 
+.legend-clear {
+  color: #38bdf8;
+  cursor: pointer;
+  font-weight: 400;
+  margin-left: 4px;
+}
+.legend-clear:hover {
+  color: #7dd3fc;
+}
+
 .legend-list {
   display: flex;
   flex-direction: column;
@@ -267,6 +277,20 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
+  cursor: pointer;
+  border-radius: 3px;
+  padding: 1px 3px;
+  transition: background 0.1s;
+}
+.legend-item:hover {
+  background: #1e1e28;
+}
+.legend-item--selected {
+  background: #1a2a3a;
+  outline: 1px solid #38bdf8;
+}
+.legend-item--dimmed {
+  opacity: 0.4;
 }
 
 .legend-swatch {

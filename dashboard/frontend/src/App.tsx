@@ -10,6 +10,7 @@ export default function App() {
   const [frameData, setFrameData] = useState<FrameData | null>(null);
   const [frameIdx, setFrameIdx] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [selectedTrackId, setSelectedTrackId] = useState<number | null>(null);
 
   const playingRef = useRef(playing);
   playingRef.current = playing;
@@ -33,18 +34,22 @@ export default function App() {
     }
   }, [info?.processed_up_to]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Fetch frame data whenever frameIdx changes ────────────────────────────
+  // ── Fetch frame data whenever frameIdx or selection changes ──────────────
   useEffect(() => {
     if (!info || frameIdx > info.processed_up_to) return;
     const controller = new AbortController();
-    fetch(`/api/frame/${frameIdx}`, { signal: controller.signal })
+    const url =
+      selectedTrackId !== null
+        ? `/api/frame/${frameIdx}?selected=${selectedTrackId}`
+        : `/api/frame/${frameIdx}`;
+    fetch(url, { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((d: FrameData | null) => {
         if (d) setFrameData(d);
       })
       .catch(() => {});
     return () => controller.abort();
-  }, [frameIdx, info?.processed_up_to]);
+  }, [frameIdx, info?.processed_up_to, selectedTrackId]);
 
   // ── Playback interval ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -75,6 +80,11 @@ export default function App() {
     },
     []
   );
+
+  // ── Track selection ───────────────────────────────────────────────────────
+  const handleSelectTrack = useCallback((id: number) => {
+    setSelectedTrackId((prev) => (prev === id ? null : id));
+  }, []);
 
   const maxFrame = info ? info.processed_up_to : 0;
   const totalFrames = info ? info.num_frames : 0;
@@ -137,6 +147,8 @@ export default function App() {
           <BEVPanel
             bevImage={frameData?.bev_image}
             tracks={frameData?.tracks ?? []}
+            selectedTrackId={selectedTrackId}
+            onSelectTrack={handleSelectTrack}
           />
         </aside>
       </main>

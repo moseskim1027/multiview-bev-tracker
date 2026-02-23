@@ -15,7 +15,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -86,8 +86,17 @@ def _encode_jpeg(img: np.ndarray, quality: int = 75) -> str:
     return base64.b64encode(buf.tobytes()).decode()
 
 
-def _draw_track_overlays(frame: np.ndarray, track_dicts: list[dict], cam_idx: int) -> np.ndarray:
-    """Back-project each track's world position into this camera and draw a dot."""
+def _draw_track_overlays(
+    frame: np.ndarray,
+    track_dicts: list[dict],
+    cam_idx: int,
+    selected_id: int | None = None,
+) -> np.ndarray:
+    """Back-project each track's world position into this camera and draw a dot.
+
+    When *selected_id* is given, that track is drawn larger/brighter and all
+    others are dimmed so the eye is drawn to the selected pedestrian.
+    """
     H = _s.cameras[cam_idx].homography
     img = frame.copy()
     h, w = img.shape[:2]
@@ -99,16 +108,41 @@ def _draw_track_overlays(frame: np.ndarray, track_dicts: list[dict], cam_idx: in
         u, v = int(pt[0] / pt[2]), int(pt[1] / pt[2])
         if not (0 <= u < w and 0 <= v < h):
             continue
-        bgr = _palette_bgr(t["id"])
-        cv2.circle(img, (u, v), 18, bgr, -1, lineType=cv2.LINE_AA)
-        cv2.circle(img, (u, v), 19, (255, 255, 255), 2, lineType=cv2.LINE_AA)
+
+        is_selected = selected_id is not None and t["id"] == selected_id
+        is_dimmed = selected_id is not None and not is_selected
+
+        b, g, r = _palette_bgr(t["id"])
+        if is_dimmed:
+            bgr = (int(b * 0.25), int(g * 0.25), int(r * 0.25))
+            radius = 12
+            label_color = (80, 80, 80)
+            border_thickness = 1
+        elif is_selected:
+            bgr = (b, g, r)
+            radius = 24
+            label_color = (255, 255, 255)
+            border_thickness = 3
+        else:
+            bgr = (b, g, r)
+            radius = 18
+            label_color = (255, 255, 255)
+            border_thickness = 2
+
+        cv2.circle(img, (u, v), radius, bgr, -1, lineType=cv2.LINE_AA)
+        cv2.circle(
+            img, (u, v), radius + 1, (255, 255, 255), border_thickness, lineType=cv2.LINE_AA
+        )
+        if is_selected:
+            # Extra yellow ring to make selection obvious
+            cv2.circle(img, (u, v), radius + 5, (0, 220, 255), 2, lineType=cv2.LINE_AA)
         cv2.putText(
             img,
             str(t["id"]),
-            (u + 22, v + 6),
+            (u + radius + 4, v + 6),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.7,
-            (255, 255, 255),
+            label_color,
             2,
             lineType=cv2.LINE_AA,
         )
@@ -221,7 +255,10 @@ async def info() -> dict:
 
 
 @app.get("/api/frame/{frame_idx}")
-async def get_frame(frame_idx: int):
+async def get_frame(
+    frame_idx: int,
+    selected: int | None = Query(default=None, description="Highlight this track ID"),
+):
     if not _s.is_ready:
         return JSONResponse({"error": "models loading"}, status_code=503)
     if frame_idx not in _s.cache:
@@ -229,7 +266,27 @@ async def get_frame(frame_idx: int):
             {"error": "frame not yet processed", "processed_up_to": _s.processed_up_to},
             status_code=404,
         )
-    return _s.cache[frame_idx]
+
+    cached = _s.cache[frame_idx]
+    if selected is None:
+        return cached
+
+    # Re-render camera thumbnails with the selected track highlighted.
+    # Raw frames are re-read from disk — fast enough for interactive selection.
+    track_dicts = cached["tracks"]
+    cam_images: list[str] = []
+    for cam_idx in range(_s.dataset.num_cameras):
+        raw = _s.dataset.load_frame(cam_idx, frame_idx)
+        overlay = _draw_track_overlays(raw, track_dicts, cam_idx, selected_id=selected)
+        thumb = cv2.resize(overlay, (_CAM_OUT_W, _CAM_OUT_H))
+        cam_images.append(_encode_jpeg(thumb))
+
+    return {
+        "frame_idx": frame_idx,
+        "tracks": track_dicts,
+        "camera_images": cam_images,
+        "bev_image": cached["bev_image"],
+    }
 
 
 if __name__ == "__main__":
