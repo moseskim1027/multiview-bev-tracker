@@ -1,0 +1,51 @@
+# multiview-bev-tracker — default runtime configuration
+
+# ── Detection ────────────────────────────────────────────────────────────────
+detection:
+  model: yolov8n.pt          # YOLOv8-nano weights (auto-downloaded on first run)
+  confidence_threshold: 0.5
+  device: cpu                # "cpu" | "mps" | "cuda"
+
+# ── ReID ─────────────────────────────────────────────────────────────────────
+reid:
+  model: osnet_x0_25         # torchreid model name
+  weights: models/osnet_x0_25_market.pth   # path relative to project root
+  device: cpu
+
+# ── Tracking ─────────────────────────────────────────────────────────────────
+tracking:
+  max_age: 30                # frames before a lost track is removed
+  embedding_threshold: 0.4   # cosine distance threshold for ReID match
+  dist_threshold: 2.0        # metres — spatial gate for association
+  cost_threshold: 5.0        # overall cost gate for Hungarian matches
+  alpha: 0.6                 # weight for spatial distance in cost
+  beta: 0.4                  # weight for embedding distance in cost
+  embedding_momentum: 0.9    # EMA weight when updating a track's embedding
+
+# ── Cameras ──────────────────────────────────────────────────────────────────
+# Each entry defines one camera and its 3×3 homography (image → world plane).
+cameras:
+  - id: cam0
+    source: data/cam0.mp4    # path to video file or device index
+    homography:
+      - [1.0, 0.0, 0.0]
+      - [0.0, 1.0, 0.0]
+      - [0.0, 0.0, 1.0]
+
+  - id: cam1
+    source: data/cam1.mp4
+    homography:
+      - [1.0, 0.0, 0.0]
+      - [0.0, 1.0, 0.0]
+      - [0.0, 0.0, 1.0]
+
+# ── Visualization ─────────────────────────────────────────────────────────────
+visualization:
+  enabled: true
+  bev_width: 800             # pixels
+  bev_height: 600            # pixels
+  world_x_range: [-10.0, 10.0]   # metres
+  world_y_range: [-10.0, 10.0]   # metres
+  show_ids: true
+  show_trails: true
+  trail_length: 30           # frames
