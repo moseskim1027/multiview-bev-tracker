@@ -1,0 +1,25 @@
+services:
+  tracker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: bev-tracker:latest
+    volumes:
+      # Input data (videos / images) — kept outside VCS due to size
+      - ./data:/app/data
+      # Downloaded model weights — kept outside VCS due to size
+      - ./models:/app/models
+      # Live-reload configs without rebuild
+      - ./configs:/app/configs
+    environment:
+      - PYTHONUNBUFFERED=1
+    # Override default CMD for one-off runs:
+    #   docker compose run tracker python scripts/run_tracker.py --config ...
+    command:
+      [
+        "python",
+        "-m",
+        "bev_tracker.pipeline",
+        "--config",
+        "configs/default.yaml",
+      ]
