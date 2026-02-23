@@ -29,6 +29,7 @@ dev = [
     "pytest>=7.4",
     "pytest-cov>=4.1",
     "ruff>=0.4",
+    "gdown>=5.0",       # for scripts/setup_models.py (OSNet download)
 ]
 
 # torchreid must be installed separately from source:
@@ -56,3 +57,6 @@ known-first-party = ["bev_tracker"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-v --tb=short"
+markers = [
+    "integration: end-to-end tests requiring real models and Wildtrack data (deselect with -m 'not integration')",
+]
