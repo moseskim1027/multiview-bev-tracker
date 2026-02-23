@@ -1,5 +1,7 @@
 # multiview-bev-tracker
 
+![Demo](resources/demo.gif)
+
 A **training-free** multi-camera Bird's Eye View (BEV) stitching and Re-Identification (ReID)
 tracking system. Uses classical geometry for spatial alignment, pretrained embeddings for
 identity, and Kalman + Hungarian for temporal consistency — no labeled data or model
@@ -22,6 +24,12 @@ Kalman prediction + Hungarian association
       ↓
 Unified world tracks
 ```
+
+## Camera Coverage
+
+<p align="center">
+  <img src="resources/coverage.png" alt="Camera coverage map" width="600">
+</p>
 
 ## Tracking Evaluation — WILDTRACK
 
