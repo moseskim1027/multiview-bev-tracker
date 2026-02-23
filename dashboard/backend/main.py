@@ -40,7 +40,7 @@ _MAX_DEMO_FRAMES = 50  # cap to keep memory and startup time reasonable
 # Extended 1.5 m on every side beyond the WILDTRACK annotation grid
 # so peripheral camera coverage is visible.
 _BEV_W, _BEV_H = 300, 900
-_BEV_X_RANGE = (-4.5, 10.5)   # was (-3, 9)  — 15 m wide
+_BEV_X_RANGE = (-4.5, 10.5)  # was (-3, 9)  — 15 m wide
 _BEV_Y_RANGE = (-10.5, 28.5)  # was (-9, 27) — 39 m tall
 
 
@@ -75,16 +75,17 @@ def _world_to_bev_raw(xw: float, yw: float) -> tuple[int, int]:
 # _CAM_FILL_COLORS are used for filled polygons in the coverage map and as the
 # canonical legend swatches exported to the frontend.
 _CAM_FILL_COLORS: list[tuple[int, int, int]] = [
-    (50,  60, 210),   # C1 — red
-    (50, 210,  60),   # C2 — green
-    (210,  60,  50),  # C3 — blue
-    (50, 210, 210),   # C4 — yellow
-    (210,  50, 210),  # C5 — magenta
-    (210, 210,  50),  # C6 — cyan
+    (50, 60, 210),  # C1 — red
+    (50, 210, 60),  # C2 — green
+    (210, 60, 50),  # C3 — blue
+    (50, 210, 210),  # C4 — yellow
+    (210, 50, 210),  # C5 — magenta
+    (210, 210, 50),  # C6 — cyan
     (150, 150, 150),  # C7 — grey
 ]
 _CAM_OUTLINE_COLORS: list[tuple[int, int, int]] = [
-    tuple(max(0, c - 60) for c in bgr) for bgr in _CAM_FILL_COLORS  # type: ignore[misc]
+    tuple(max(0, c - 60) for c in bgr)
+    for bgr in _CAM_FILL_COLORS  # type: ignore[misc]
 ]
 
 
@@ -100,7 +101,7 @@ def _camera_hulls() -> list[np.ndarray | None]:
     W_img, H_img = 1920, 1080
     top = H_img // 3
     sample_pts = (
-        [(int(f * W_img), H_img) for f in [0, .125, .25, .375, .5, .625, .75, .875, 1]]
+        [(int(f * W_img), H_img) for f in [0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875, 1]]
         + [(0, v) for v in range(H_img, top - 1, -H_img // 8)]
         + [(W_img, v) for v in range(top, H_img + 1, H_img // 8)]
     )
@@ -144,6 +145,7 @@ def _make_coverage_image() -> str:
     xlo, xhi = _BEV_X_RANGE
     ylo, yhi = _BEV_Y_RANGE
     import math as _math
+
     for xi in range(int(_math.floor(xlo / 5)) * 5, int(_math.ceil(xhi / 5)) * 5 + 1, 5):
         u, _ = _world_to_bev(float(xi), ylo)
         cv2.line(canvas, (u, 0), (u, _BEV_H - 1), grid_color, 1)
@@ -155,12 +157,28 @@ def _make_coverage_image() -> str:
     label_col = (90, 90, 110)
     for xi in range(int(_math.ceil(xlo / 10)) * 10, int(xhi) + 1, 10):
         u, v0 = _world_to_bev(float(xi), yhi)
-        cv2.putText(canvas, f"{xi}m", (u - 10, v0 + 12),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.3, label_col, 1, cv2.LINE_AA)
+        cv2.putText(
+            canvas,
+            f"{xi}m",
+            (u - 10, v0 + 12),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.3,
+            label_col,
+            1,
+            cv2.LINE_AA,
+        )
     for yi in range(int(_math.ceil(ylo / 10)) * 10, int(yhi) + 1, 10):
         u0, v = _world_to_bev(xlo, float(yi))
-        cv2.putText(canvas, f"{yi}m", (u0 + 2, v + 4),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.3, label_col, 1, cv2.LINE_AA)
+        cv2.putText(
+            canvas,
+            f"{yi}m",
+            (u0 + 2, v + 4),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.3,
+            label_col,
+            1,
+            cv2.LINE_AA,
+        )
 
     # Origin crosshair
     u0, v0 = _world_to_bev(0.0, 0.0)
@@ -321,8 +339,14 @@ def _draw_bbox_overlays(
         (lw, lh), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.55, 2)
         cv2.rectangle(img, (x1, y1 - lh - 6), (x1 + lw + 4, y1), (b, g, r), -1)
         cv2.putText(
-            img, label, (x1 + 2, y1 - 4),
-            cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 2, lineType=cv2.LINE_AA,
+            img,
+            label,
+            (x1 + 2, y1 - 4),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.55,
+            (255, 255, 255),
+            2,
+            lineType=cv2.LINE_AA,
         )
     return img
 
@@ -381,8 +405,10 @@ def _process_frame(frame_idx: int) -> dict:
                 existing = track_bboxes.get(best_t.id, {}).get(cam_idx)
                 if existing is None or best_dist < existing[4]:
                     track_bboxes.setdefault(best_t.id, {})[cam_idx] = [
-                        float(det.bbox[0]), float(det.bbox[1]),
-                        float(det.bbox[2]), float(det.bbox[3]),
+                        float(det.bbox[0]),
+                        float(det.bbox[1]),
+                        float(det.bbox[2]),
+                        float(det.bbox[3]),
                         best_dist,  # stored temporarily for comparison; stripped below
                     ]
 
