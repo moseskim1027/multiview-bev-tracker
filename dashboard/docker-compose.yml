@@ -1,0 +1,24 @@
+services:
+  backend:
+    build:
+      # Build context is the project root so the Dockerfile can access
+      # src/, pyproject.toml, requirements.txt, models/, and data/
+      context: ..
+      dockerfile: dashboard/backend/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount data and models read-only; they are gitignored so must exist locally
+      - ../data:/app/data:ro
+      - ../models:/app/models:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
