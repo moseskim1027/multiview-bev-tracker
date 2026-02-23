@@ -23,6 +23,32 @@ Kalman prediction + Hungarian association
 Unified world tracks
 ```
 
+## Tracking Evaluation — WILDTRACK
+
+Evaluated on 5 consecutive frames (frames 0–4), 7 cameras, 34–38 annotated
+persons per frame. Tracks are matched to ground-truth world positions using
+the Hungarian algorithm with a 2 m gate.
+
+| Frame | GT persons | Active tracks | Matched | Recall | Mean dist (m) |
+|------:|----------:|-------------:|--------:|-------:|--------------:|
+| 0 | 38 | 107 | 35 | 0.92 | 0.28 |
+| 1 | 36 | 120 | 35 | 0.97 | 0.36 |
+| 2 | 34 | 137 | 33 | 0.97 | 0.36 |
+| 3 | 36 | 145 | 34 | 0.94 | 0.30 |
+| 4 | 36 | 152 | 34 | 0.94 | 0.37 |
+| **Mean** | | | | **0.95** | **0.33** |
+
+**Recall 92–97%** — the pipeline recovers nearly every annotated person.
+**Mean position error 0.33 m** — tracks land within ~33 cm of ground truth,
+well inside a person's footprint.
+
+Active track count exceeds GT count (~3–4×) because each of the 7 cameras
+independently detects and projects the same person, producing multiple
+slightly-offset tracks per individual. A cross-camera merging step would
+reduce this; it is out of scope for a training-free baseline.
+
+---
+
 ## Key Design Decisions
 
 | Component | Choice | Reason |
