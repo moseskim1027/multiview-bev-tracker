@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import BEVPanel from "./components/BEVPanel";
 import CameraGrid from "./components/CameraGrid";
-import type { FrameData, InfoData } from "./types";
+import CoverageModal from "./components/CoverageModal";
+import TracksPanel from "./components/TracksPanel";
+import type { FrameData, HomographyData, InfoData } from "./types";
 
-const FPS = 2; // playback speed (frames per second)
+const FPS = 2;
 
 export default function App() {
   const [info, setInfo] = useState<InfoData | null>(null);
@@ -11,9 +13,36 @@ export default function App() {
   const [frameIdx, setFrameIdx] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [selectedTrackId, setSelectedTrackId] = useState<number | null>(null);
+  // True only once the current frameData was fetched with the active selection,
+  // so the canvas overlay only draws when the plain camera images are loaded.
+  const [selectionReady, setSelectionReady] = useState(false);
+  const [homographyData, setHomographyData] = useState<HomographyData | null>(null);
+  const [coverageData, setCoverageData] = useState<{ image: string; legend: { cam: string; color: string }[] } | null>(null);
+  const [showCoverage, setShowCoverage] = useState(false);
 
   const playingRef = useRef(playing);
   playingRef.current = playing;
+
+  // ── Fetch static data — retry once is_ready to handle 503 during model load
+  useEffect(() => {
+    fetch("/api/homographies")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: HomographyData | null) => { if (d) setHomographyData(d); })
+      .catch(() => {});
+    fetch("/api/bev-coverage")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { image: string; legend: { cam: string; color: string }[] } | null) => { if (d) setCoverageData(d); })
+      .catch(() => {});
+  }, []);
+
+  // Retry coverage fetch once backend is ready (handles 503 during model load)
+  useEffect(() => {
+    if (!info?.is_ready || coverageData) return;
+    fetch("/api/bev-coverage")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { image: string; legend: { cam: string; color: string }[] } | null) => { if (d) setCoverageData(d); })
+      .catch(() => {});
+  }, [info?.is_ready, coverageData]);
 
   // ── Poll /api/info every 2 s ───────────────────────────────────────────────
   useEffect(() => {
@@ -34,7 +63,7 @@ export default function App() {
     }
   }, [info?.processed_up_to]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Fetch frame data whenever frameIdx or selection changes ──────────────
+  // ── Fetch frame data whenever frameIdx or selection changes ───────────────
   useEffect(() => {
     if (!info || frameIdx > info.processed_up_to) return;
     const controller = new AbortController();
@@ -42,10 +71,14 @@ export default function App() {
       selectedTrackId !== null
         ? `/api/frame/${frameIdx}?selected=${selectedTrackId}`
         : `/api/frame/${frameIdx}`;
+    setSelectionReady(false); // clear until the new plain-image frame arrives
     fetch(url, { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : null))
       .then((d: FrameData | null) => {
-        if (d) setFrameData(d);
+        if (d) {
+          setFrameData(d);
+          setSelectionReady(selectedTrackId !== null);
+        }
       })
       .catch(() => {});
     return () => controller.abort();
@@ -58,13 +91,8 @@ export default function App() {
       setFrameIdx((prev) => {
         if (!info) return prev;
         const next = prev + 1;
-        // If the next frame isn't processed yet, stay put
         if (next > info.processed_up_to) return prev;
-        // Loop back to 0 when we've seen everything
-        if (next >= info.num_frames) {
-          setPlaying(false);
-          return prev;
-        }
+        if (next >= info.num_frames) { setPlaying(false); return prev; }
         return next;
       });
     }, 1000 / FPS);
@@ -72,18 +100,19 @@ export default function App() {
   }, [playing, info]);
 
   // ── Slider seek ───────────────────────────────────────────────────────────
-  const handleSeek = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const v = Number(e.target.value);
-      setFrameIdx(v);
-      setPlaying(false);
-    },
-    []
-  );
+  const handleSeek = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setFrameIdx(Number(e.target.value));
+    setPlaying(false);
+  }, []);
 
   // ── Track selection ───────────────────────────────────────────────────────
   const handleSelectTrack = useCallback((id: number) => {
     setSelectedTrackId((prev) => (prev === id ? null : id));
+  }, []);
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedTrackId(null);
+    setSelectionReady(false);
   }, []);
 
   const maxFrame = info ? info.processed_up_to : 0;
@@ -92,6 +121,10 @@ export default function App() {
 
   return (
     <div className="app">
+      {showCoverage && coverageData && (
+        <CoverageModal image={coverageData.image} legend={coverageData.legend} onClose={() => setShowCoverage(false)} />
+      )}
+
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <header className="header">
         <h1 className="header-title">BEV Tracker</h1>
@@ -120,37 +153,50 @@ export default function App() {
         </div>
 
         <div className="status">
-          {!info?.is_ready && <span className="badge badge--loading">Loading models…</span>}
+          {!info?.is_ready && (
+            <span className="badge badge--loading">Loading models…</span>
+          )}
           {info?.is_ready && maxFrame < totalFrames - 1 && (
-            <span className="badge badge--processing">
-              Processing {processedPct}%
-            </span>
+            <span className="badge badge--processing">Processing {processedPct}%</span>
           )}
           {info?.is_ready && maxFrame >= totalFrames - 1 && (
             <span className="badge badge--done">Ready</span>
           )}
           {frameData && (
-            <span className="badge badge--tracks">
-              {frameData.tracks.length} tracks
-            </span>
+            <span className="badge badge--tracks">{frameData.tracks.length} tracks</span>
           )}
         </div>
       </header>
 
-      {/* ── Main layout ────────────────────────────────────────────────────── */}
+      {/* ── Main: left column (BEV + cameras) + right panel (tracks) ─────── */}
       <main className="main">
-        <section className="cameras-section">
-          <CameraGrid images={frameData?.camera_images ?? []} />
-        </section>
 
-        <aside className="bev-section">
-          <BEVPanel
-            bevImage={frameData?.bev_image}
-            tracks={frameData?.tracks ?? []}
-            selectedTrackId={selectedTrackId}
-            onSelectTrack={handleSelectTrack}
-          />
-        </aside>
+        <div className="content-left">
+          {/* BEV — horizontal, top of left column */}
+          <section className="bev-section">
+            <div className="bev-section-label">Bird's Eye View</div>
+            <BEVPanel bevImage={frameData?.bev_image} />
+          </section>
+
+          {/* Camera grid — below BEV */}
+          <section className="cameras-section">
+            <CameraGrid
+              images={frameData?.camera_images ?? []}
+              selectedTrack={selectionReady ? frameData?.tracks.find((t) => t.id === selectedTrackId) : undefined}
+              homographyData={homographyData}
+              onShowCoverage={() => setShowCoverage(true)}
+            />
+          </section>
+        </div>
+
+        {/* Tracks — right panel */}
+        <TracksPanel
+          tracks={frameData?.tracks ?? []}
+          selectedTrackId={selectedTrackId}
+          onSelectTrack={handleSelectTrack}
+          onClearSelection={handleClearSelection}
+        />
+
       </main>
     </div>
   );
