@@ -1,0 +1,287 @@
+/* ── Reset & base ─────────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  background: #0d0d0f;
+  color: #e2e2e6;
+  font-family: "SF Mono", "Fira Code", monospace;
+  font-size: 13px;
+  overflow: hidden;
+}
+
+/* ── App shell ────────────────────────────────────────────────────────────── */
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  background: #16161a;
+  border-bottom: 1px solid #2a2a33;
+  flex-shrink: 0;
+}
+
+.header-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #a8daff;
+  white-space: nowrap;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.btn-play {
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 14px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.btn-play:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.btn-play:hover:not(:disabled) {
+  background: #3b82f6;
+}
+
+.seek-slider {
+  flex: 1;
+  accent-color: #2563eb;
+  cursor: pointer;
+}
+
+.frame-counter {
+  white-space: nowrap;
+  color: #888;
+  font-size: 12px;
+}
+
+.status {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.badge {
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.badge--loading {
+  background: #4b3a00;
+  color: #fbbf24;
+}
+.badge--processing {
+  background: #1a3a4b;
+  color: #38bdf8;
+}
+.badge--done {
+  background: #14451f;
+  color: #4ade80;
+}
+.badge--tracks {
+  background: #2a2a33;
+  color: #e2e2e6;
+}
+
+/* ── Main layout ──────────────────────────────────────────────────────────── */
+.main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── Camera grid (left) ───────────────────────────────────────────────────── */
+.cameras-section {
+  flex: 1;
+  overflow: hidden;
+  padding: 6px;
+}
+
+.camera-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: 4px;
+  height: 100%;
+}
+
+.camera-cell {
+  position: relative;
+  background: #111118;
+  border: 1px solid #1e1e28;
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.camera-cell--empty {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.camera-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.camera-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: #444;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.camera-label {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 3px;
+  pointer-events: none;
+}
+
+/* ── BEV panel (right) ────────────────────────────────────────────────────── */
+.bev-section {
+  width: 280px;
+  flex-shrink: 0;
+  border-left: 1px solid #2a2a33;
+  overflow: hidden;
+}
+
+.bev-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 8px;
+  gap: 8px;
+}
+
+.bev-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #a8daff;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.bev-img-wrap {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  min-height: 0;
+}
+
+.bev-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+.bev-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 200px;
+  color: #444;
+  font-size: 12px;
+  border: 1px dashed #2a2a33;
+  border-radius: 4px;
+}
+
+/* ── Track legend ─────────────────────────────────────────────────────────── */
+.track-legend {
+  flex-shrink: 0;
+  border-top: 1px solid #2a2a33;
+  padding-top: 6px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.legend-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+
+.track-count {
+  color: #4ade80;
+}
+
+.legend-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-id {
+  width: 36px;
+  color: #ccc;
+}
+
+.legend-pos {
+  color: #666;
+  font-size: 11px;
+}
