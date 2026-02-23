@@ -7,6 +7,82 @@ tracking system. Uses classical geometry for spatial alignment, pretrained embed
 identity, and Kalman + Hungarian for temporal consistency — no labeled data or model
 fine-tuning required.
 
+---
+
+## Dashboard
+
+The dashboard runs entirely in Docker — no local Python or Node installation required.
+
+### Prerequisites
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (or Docker Engine + Compose plugin)
+- WILDTRACK dataset at `data/wildtrack/` — see [Dataset Setup](#dataset-setup--wildtrack)
+- Pretrained model weights in `models/` — see [Model Setup](#model-setup)
+
+### 1. Download model weights
+
+```bash
+pip install gdown
+python scripts/setup_models.py
+```
+
+### 2. Build and start
+
+```bash
+cd dashboard
+docker compose up --build
+```
+
+The first build takes several minutes — it compiles torchreid from source.
+Subsequent starts use the cached image and are much faster.
+
+### 3. Open the dashboard
+
+Navigate to **http://localhost:3000**.
+
+The header shows a **Loading models…** badge while YOLO and OSNet initialise (~30–60 s).
+Once it switches to **Processing**, frames are being tracked in the background.
+Playback starts automatically when frame 0 is ready.
+
+### 4. Controls
+
+| Control | Action |
+|---------|--------|
+| **▶ Play / ⏸ Pause** | Start or pause frame playback (2 fps) |
+| **Seek slider** | Jump to any processed frame |
+| **Track list** (right panel) | Click a track to highlight it across all cameras |
+| **Camera Coverage** (8th grid cell) | Opens the static camera footprint map |
+
+<p align="center">
+  <img src="resources/coverage.png" alt="Camera coverage map" width="600">
+</p>
+
+### 5. Stop
+
+```bash
+# Ctrl-C in the compose terminal, then:
+docker compose down
+```
+
+### How it works
+
+```
+Browser → http://localhost:3000
+    └──── nginx (frontend container, port 3000)
+            ├── /       → serves the React + TypeScript SPA
+            └── /api/*  → reverse-proxied to backend:8000
+                               ├── GET /api/info            processing status
+                               ├── GET /api/frame/{n}       BEV image + camera frames + tracks
+                               ├── GET /api/homographies    camera calibration metadata
+                               └── GET /api/bev-coverage    static coverage diagram
+```
+
+The backend processes all frames once at startup and caches results in memory.
+`data/` and `models/` are mounted read-only into the backend container — nothing
+is written back to the host.
+
+---
+
 ## Architecture
 
 ```
@@ -18,18 +94,16 @@ Bounding-box bottom-center → ground-plane projection (per-camera homography)
       ↓
 Global BEV coordinates
       ↓
+Detection deduplication (1.0 m NMS across cameras)
+      ↓
 ReID embedding extraction (OSNet-x0.25, pretrained)
       ↓
 Kalman prediction + Hungarian association
       ↓
-Unified world tracks
+Unified world tracks  (min 6 confirmed frames, inside BEV range)
 ```
 
-## Camera Coverage
-
-<p align="center">
-  <img src="resources/coverage.png" alt="Camera coverage map" width="600">
-</p>
+---
 
 ## Tracking Evaluation — WILDTRACK
 
@@ -65,6 +139,9 @@ reduce this; it is out of scope for a training-free baseline.
 | ReID | OSNet-x0.25 (torchreid) | Lightest accurate embedding model |
 | Tracker | Custom Kalman + Hungarian | World-coordinate SORT variant |
 | Stitching | Per-camera homography | No depth prediction needed |
+| Dedup | 1.0 m NMS pre-tracker | Collapses multi-camera duplicates |
+
+---
 
 ## Repository Layout
 
@@ -74,8 +151,19 @@ multiview-bev-tracker/
 ├── configs/
 │   ├── default.yaml           # Generic runtime configuration
 │   └── wildtrack.yaml         # WILDTRACK-specific configuration
-├── data/                      # Input data (gitignored — see Dataset Setup below)
-├── models/                    # Downloaded weights (gitignored — see Model Setup below)
+├── dashboard/
+│   ├── docker-compose.yml     # Orchestrates backend + frontend
+│   ├── backend/
+│   │   ├── Dockerfile         # Build context: project root
+│   │   ├── main.py            # FastAPI server + tracking pipeline
+│   │   └── requirements.txt   # fastapi, uvicorn
+│   └── frontend/
+│       ├── Dockerfile         # Node build → nginx serve
+│       ├── nginx.conf         # Reverse-proxies /api/* to backend
+│       └── src/               # React + TypeScript + Vite app
+├── data/                      # Input data (gitignored — see Dataset Setup)
+├── models/                    # Downloaded weights (gitignored — see Model Setup)
+├── resources/                 # README assets (demo gif, coverage map)
 ├── scripts/
 │   ├── run_tracker.py         # CLI entry point
 │   └── setup_models.py        # Model weight downloader
@@ -91,6 +179,8 @@ multiview-bev-tracker/
 │   └── pipeline.py            # Main loop
 └── tests/
 ```
+
+---
 
 ## Dataset Setup — WILDTRACK
 
@@ -157,7 +247,7 @@ the `project_to_world` / `Camera.homography_inv` API used throughout the pipelin
 
 ## Model Setup
 
-Download pretrained weights before running the pipeline or integration tests:
+Download pretrained weights before running the dashboard or integration tests:
 
 ```bash
 # Install gdown if not already present
@@ -174,39 +264,20 @@ python scripts/setup_models.py --yolo    # YOLOv8n only
 python scripts/setup_models.py --osnet   # OSNet only
 ```
 
-torchreid must be installed from source (not on PyPI):
-
-```bash
-pip install git+https://github.com/KaiyangZhou/deep-person-reid.git
-```
-
 ---
-
-## Quickstart (Docker)
-
-```bash
-# Build and run
-docker compose up
-
-# Run against custom video/config
-docker compose run tracker python scripts/run_tracker.py \
-  --config configs/default.yaml
-```
 
 ## Local Development
 
-### Conda environment (recommended)
+Use the `bev-tracker` conda environment for all Python work.
 
-Two paths depending on hardware:
+### Conda environment
 
 #### Option A — Apple Silicon (M1/M2/M3) with MPS acceleration
 
 ```bash
-# Create env using native arm64 (MPS-capable PyTorch)
 conda create -n bev-tracker python=3.11 -y
 conda activate bev-tracker
 pip install -r requirements.txt
-# torchreid from source (no PyPI package)
 pip install --no-build-isolation \
     git+https://github.com/KaiyangZhou/deep-person-reid.git
 pip install -e ".[dev]"
@@ -215,7 +286,6 @@ pip install -e ".[dev]"
 #### Option B — Intel Mac / Rosetta 2 (osx-64, CPU-only)
 
 ```bash
-# Force x86_64 environment for Rosetta compatibility
 CONDA_SUBDIR=osx-64 conda create -n bev-tracker python=3.11 -y
 conda activate bev-tracker
 conda config --env --set subdir osx-64
@@ -225,7 +295,7 @@ pip install --no-build-isolation \
 pip install -e ".[dev]"
 ```
 
-#### Option C — Linux / Docker (CPU or CUDA)
+#### Option C — Linux (CPU or CUDA)
 
 ```bash
 pip install -r requirements.txt
@@ -237,19 +307,22 @@ pip install -e ".[dev]"
 ### Lint and tests
 
 ```bash
-# Lint
+# Lint (run inside bev-tracker conda env)
 ruff check .
 ruff format --check .
 
-# Unit tests (no models or data required)
+# Unit tests — no models or data required
 pytest -m "not integration"
 
-# All tests including integration (requires data/wildtrack/ and models/)
+# Integration tests — requires data/wildtrack/ and models/
 pytest
 ```
 
-## Prerequisites
+### Frontend
 
-- Python 3.11+
-- Per-camera homography matrices (ground-plane calibration)
-- Synchronized multi-camera frames or video files
+Frontend checks run inside Docker to match CI:
+
+```bash
+cd dashboard
+docker compose build frontend   # npm install + tsc + vite build
+```
